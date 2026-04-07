@@ -21,7 +21,7 @@
 - `UPSTREAM_REPO`：可选，默认 `amll-dev/amll-ttml-db`
 - `UPSTREAM_BRANCH`：可选，默认 `main`
 - `SYNC_BRANCH`：可选，默认 `upstream-main`
-- `CNB_REPO_URL`：必填，例如 `https://cnb.cool/<组织>/<仓库>.git`
+- `CNB_REPO_URL`：必填，例如 `https://cnb.cool/<组织>/<仓库>.git`，不带 `.git` 也可以
 - `CNB_TARGET_BRANCH`：可选，默认 `main`
 
 ## 需要配置的 GitHub Secrets
@@ -32,7 +32,7 @@
 
 ## 工作流触发方式
 
-- 每 30 分钟自动同步一次
+- 每天自动同步一次（`03:00 UTC`）
 - 也可以在 GitHub Actions 页面手动触发
 - 首次启用建议先手动触发一次，确认 GitHub 的 `upstream-main` 与 CNB 的目标分支都已出现
 
@@ -50,3 +50,4 @@
 - 如果你希望同时维护 GitHub 的 `upstream-main`，请新增 `GH_PUSH_TOKEN`；最省事的是 classic PAT，至少包含 `repo` 与 `workflow` scope
 - 如果你启用了 GitHub 分支保护，请确认该工作流可以推送镜像分支
 - 如果 CNB Token 或用户名包含特殊字符，工作流会自动做 URL 编码，无需你手动处理
+- 首次同步如果仓库历史较大，推送 CNB 可能耗时较久；当前工作流已放宽到 60 分钟

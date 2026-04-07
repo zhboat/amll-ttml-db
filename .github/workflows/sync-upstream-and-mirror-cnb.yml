@@ -3,7 +3,7 @@ name: 同步上游并镜像到 CNB
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0 3 * * *"
 
 concurrency:
   group: sync-upstream-and-mirror-cnb
@@ -22,7 +22,7 @@ env:
 jobs:
   sync-and-mirror:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
       - name: 签出当前仓库
         uses: actions/checkout@v6
@@ -121,7 +121,12 @@ jobs:
 
           cnb_url="${CNB_REPO_URL#https://}"
           cnb_url="${cnb_url#http://}"
+
+          if [[ "$cnb_url" != *.git ]]; then
+            cnb_url="${cnb_url}.git"
+          fi
+
           cnb_auth_url="https://${cnb_username_encoded}:${cnb_token_encoded}@${cnb_url}"
 
-          git push "$cnb_auth_url" "HEAD:${CNB_TARGET_BRANCH}" --force
-          git push "$cnb_auth_url" --tags
+          git push "$cnb_auth_url" "HEAD:${CNB_TARGET_BRANCH}" --force --progress
+          git push "$cnb_auth_url" --tags --progress
