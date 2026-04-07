@@ -28,6 +28,7 @@
 
 - `CNB_USERNAME`：CNB 用户名
 - `CNB_TOKEN`：CNB Access Token / Deploy Token
+- `GH_PUSH_TOKEN`：可选但推荐；用于把上游镜像分支推回当前 GitHub fork
 
 ## 工作流触发方式
 
@@ -37,13 +38,15 @@
 
 ## 结果说明
 
-- GitHub 仓库中的 `upstream-main` 会被强制更新为上游 `main`
+- 配置了 `GH_PUSH_TOKEN` 时，GitHub 仓库中的 `upstream-main` 会被强制更新为上游 `main`
+- 未配置 `GH_PUSH_TOKEN` 时，会跳过 GitHub 镜像分支推送，但仍继续镜像到 CNB
 - CNB 的目标分支会被强制更新为同步后的内容
-- 上游新增的 tags 也会被推送到 GitHub 和 CNB
+- 上游新增的 tags 会被推送到 CNB；若启用了 GitHub 镜像，也会同时推送到 GitHub
 
 ## 注意事项
 
 - 这是镜像同步，`upstream-main` 与 CNB 目标分支都应视为只读分支，不建议手动提交
 - 如果 CNB 目标分支上有你自己的提交，工作流会在下一次同步时覆盖它
+- 如果你希望同时维护 GitHub 的 `upstream-main`，请新增 `GH_PUSH_TOKEN`；最省事的是 classic PAT，至少包含 `repo` 与 `workflow` scope
 - 如果你启用了 GitHub 分支保护，请确认该工作流可以推送镜像分支
 - 如果 CNB Token 或用户名包含特殊字符，工作流会自动做 URL 编码，无需你手动处理
