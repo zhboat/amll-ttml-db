@@ -1,0 +1,108 @@
+name: 同步上游并镜像到 CNB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: sync-upstream-and-mirror-cnb
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM_REPO: ${{ vars.UPSTREAM_REPO != '' && vars.UPSTREAM_REPO || 'amll-dev/amll-ttml-db' }}
+  UPSTREAM_BRANCH: ${{ vars.UPSTREAM_BRANCH != '' && vars.UPSTREAM_BRANCH || 'main' }}
+  SYNC_BRANCH: ${{ vars.SYNC_BRANCH != '' && vars.SYNC_BRANCH || 'upstream-main' }}
+  CNB_REPO_URL: ${{ vars.CNB_REPO_URL }}
+  CNB_TARGET_BRANCH: ${{ vars.CNB_TARGET_BRANCH != '' && vars.CNB_TARGET_BRANCH || 'main' }}
+
+jobs:
+  sync-and-mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 签出当前仓库
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Git 身份
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: 校验同步配置
+        env:
+          CNB_USERNAME: ${{ secrets.CNB_USERNAME }}
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$UPSTREAM_REPO" ]]; then
+            echo "::error::缺少 vars.UPSTREAM_REPO"
+            exit 1
+          fi
+
+          if [[ -z "$UPSTREAM_BRANCH" ]]; then
+            echo "::error::缺少 vars.UPSTREAM_BRANCH"
+            exit 1
+          fi
+
+          if [[ -z "$SYNC_BRANCH" ]]; then
+            echo "::error::缺少 vars.SYNC_BRANCH"
+            exit 1
+          fi
+
+          if [[ -z "$CNB_REPO_URL" ]]; then
+            echo "::error::缺少 vars.CNB_REPO_URL，例如 https://cnb.cool/<组织>/<仓库>.git"
+            exit 1
+          fi
+
+          if [[ -z "$CNB_USERNAME" || -z "$CNB_TOKEN" ]]; then
+            echo "::error::缺少 secrets.CNB_USERNAME / secrets.CNB_TOKEN"
+            exit 1
+          fi
+
+      - name: 获取上游分支与标签
+        run: |
+          set -euo pipefail
+
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null \
+            || git remote set-url upstream "https://github.com/${UPSTREAM_REPO}.git"
+
+          git fetch upstream \
+            "refs/heads/${UPSTREAM_BRANCH}:refs/remotes/upstream/${UPSTREAM_BRANCH}" \
+            --tags \
+            --force
+          git rev-parse "upstream/${UPSTREAM_BRANCH}"
+
+      - name: 更新当前 GitHub 仓库镜像分支
+        run: |
+          set -euo pipefail
+
+          git checkout -B "$SYNC_BRANCH" "upstream/${UPSTREAM_BRANCH}"
+          git push origin "HEAD:${SYNC_BRANCH}" --force
+          git push origin --tags
+
+      - name: 镜像到 CNB
+        env:
+          CNB_USERNAME: ${{ secrets.CNB_USERNAME }}
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          cnb_username_encoded="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["CNB_USERNAME"], safe=""))')"
+          cnb_token_encoded="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["CNB_TOKEN"], safe=""))')"
+
+          echo "::add-mask::${cnb_username_encoded}"
+          echo "::add-mask::${cnb_token_encoded}"
+
+          cnb_url="${CNB_REPO_URL#https://}"
+          cnb_url="${cnb_url#http://}"
+          cnb_auth_url="https://${cnb_username_encoded}:${cnb_token_encoded}@${cnb_url}"
+
+          git push "$cnb_auth_url" "HEAD:${CNB_TARGET_BRANCH}" --force
+          git push "$cnb_auth_url" --tags
