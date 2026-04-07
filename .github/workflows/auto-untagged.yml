@@ -24,4 +24,4 @@ jobs:
           # 移除 "慢速审核队列" 标签
           gh pr edit $pr_number --remove-label "慢速审核队列"
 env:
-  GITHUB_TOKEN: {{ secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
